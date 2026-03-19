@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PizzaCo — Customer Segmentation Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0f0e0d;
+    --bg2:       #171614;
+    --bg3:       #1e1c1a;
+    --bg4:       #252220;
+    --border:    rgba(255,255,255,0.07);
+    --border2:   rgba(255,255,255,0.12);
+    --text:      #f0ede8;
+    --text2:     #a09890;
+    --text3:     #6b6258;
+    --accent:    #e84c1e;
+    --accent2:   #ff7043;
+    --gold:      #f5a623;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --r:         10px;
+    --r2:        16px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Noise texture overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── Header ── */
+  header {
+    position: relative;
+    z-index: 1;
+    padding: 3rem 2rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: var(--accent);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .logo-text h1 {
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .logo-text p {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 3px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── Main Layout ── */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 4rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; padding: 1.5rem 1rem 3rem; }
+    header { padding: 2rem 1rem 1.5rem; }
+  }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 1.25rem 1.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .panel-icon {
+    width: 28px; height: 28px;
+    background: var(--bg4);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .panel-body { padding: 1.5rem; }
+
+  /* ── Input Grid ── */
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 1.5rem;
+  }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 7px;
+  }
+
+  .field input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 10px 14px;
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    transition: border-color 0.2s;
+    -moz-appearance: textfield;
+  }
+
+  .field input::-webkit-outer-spin-button,
+  .field input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  .field input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .field .hint {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 5px;
+  }
+
+  /* ── Classify button ── */
+  .btn-classify {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--r);
+    padding: 13px;
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .btn-classify:hover { background: var(--accent2); }
+  .btn-classify:active { transform: scale(0.99); }
+
+  /* ── Result Card ── */
+  #result-zone { margin-top: 0; }
+
+  .result-card {
+    border-radius: var(--r2);
+    border: 1px solid var(--border2);
+    overflow: hidden;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-hero {
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .seg-icon-big {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    flex-shrink: 0;
+  }
+
+  .result-hero h2 {
+    font-family: var(--font-head);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .result-hero p {
+    font-size: 13px;
+    opacity: 0.65;
+    line-height: 1.4;
+  }
+
+  .result-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .stat {
+    padding: 14px 16px;
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .stat:last-child { border-right: none; }
+
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text3);
+    margin-bottom: 4px;
+  }
+
+  .stat-val {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .result-action {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .action-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+
+  .action-text {
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text2);
+  }
+
+  /* ── Conflict Warning ── */
+  .conflict-card {
+    background: rgba(245, 166, 35, 0.07);
+    border: 1px solid rgba(245, 166, 35, 0.25);
+    border-radius: var(--r);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    animation: slideIn 0.3s ease;
+  }
+
+  .conflict-title {
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .conflict-desc {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--text2);
+  }
+
+  /* ── Rules Reference Panel ── */
+  .rules-toggle-btn {
+    width: 100%;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 10px 14px;
+    color: var(--text2);
+    font-family: var(--font-body);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .rules-toggle-btn:hover {
+    border-color: var(--border2);
+    color: var(--text);
+  }
+
+  .arrow { transition: transform 0.2s; display: inline-block; }
+  .arrow.open { transform: rotate(90deg); }
+
+  .rules-list { display: none; }
+  .rules-list.open { display: block; }
+
+  .rule-row {
+    display: grid;
+    grid-template-columns: 26px 110px 1fr auto;
+    align-items: start;
+    gap: 10px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+  }
+
+  .rule-row:last-child { border-bottom: none; }
+
+  .rule-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+
+  .rule-name {
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .rule-cond {
+    color: var(--text2);
+    line-height: 1.5;
+  }
+
+  .rule-priority {
+    font-size: 11px;
+    color: var(--text3);
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  /* ── Segment color themes ── */
+  .t-first     { --tc: #60a5fa; --tbg: rgba(96,165,250,0.1); --tbo: rgba(96,165,250,0.25); }
+  .t-loyal     { --tc: #a78bfa; --tbg: rgba(167,139,250,0.1); --tbo: rgba(167,139,250,0.25); }
+  .t-regular   { --tc: #34d399; --tbg: rgba(52,211,153,0.1); --tbo: rgba(52,211,153,0.25); }
+  .t-reengaged { --tc: #38bdf8; --tbg: rgba(56,189,248,0.1); --tbo: rgba(56,189,248,0.25); }
+  .t-atrisk    { --tc: #fb923c; --tbg: rgba(251,146,60,0.1); --tbo: rgba(251,146,60,0.25); }
+  .t-dormant   { --tc: #94a3b8; --tbg: rgba(148,163,184,0.1); --tbo: rgba(148,163,184,0.25); }
+  .t-lost      { --tc: #f87171; --tbg: rgba(248,113,113,0.1); --tbo: rgba(248,113,113,0.25); }
+  .t-unknown   { --tc: #6b7280; --tbg: rgba(107,114,128,0.1); --tbo: rgba(107,114,128,0.15); }
+
+  .result-card { background: var(--tbg); border-color: var(--tbo); }
+  .result-hero h2 { color: var(--tc); }
+  .seg-icon-big { background: rgba(255,255,255,0.05); }
+  .stat-val { color: var(--tc); }
+  .action-text strong { color: var(--tc); }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--text3);
+  }
+
+  .empty-state .big { font-size: 40px; margin-bottom: 1rem; }
+  .empty-state p { font-size: 13px; line-height: 1.6; }
+
+  /* ── Also-matched pills ── */
+  .also-matched {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 10px 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  .match-pill {
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* ── Flowchart visual ── */
+  .flow-section {
+    grid-column: 1 / -1;
+  }
+
+  .flow-scroll {
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .flow-diagram {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    min-width: 860px;
+    padding: 1.5rem;
+    position: relative;
+  }
+
+  .flow-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .flow-node {
+    border-radius: var(--r);
+    border: 1px solid var(--border2);
+    padding: 10px 12px;
+    text-align: center;
+    font-size: 12px;
+    width: 100%;
+    max-width: 130px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+
+  .flow-node:hover { border-color: var(--accent); }
+  .flow-node.active { border-color: var(--tc, var(--accent)); background: var(--tbg, rgba(232,76,30,0.1)); }
+
+  .flow-node .node-icon { font-size: 18px; margin-bottom: 4px; }
+  .flow-node .node-name { font-family: var(--font-head); font-size: 12px; font-weight: 700; color: var(--text); }
+  .flow-node .node-rule { font-size: 10px; color: var(--text3); margin-top: 3px; line-height: 1.4; }
+
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    font-size: 16px;
+    padding-top: 28px;
+    flex-shrink: 0;
+    width: 24px;
+  }
+
+  /* ── Decision tree ── */
+  .decision-tree {
+    padding: 1.5rem;
+    font-size: 13px;
+  }
+
+  .dt-node {
+    margin-left: 0;
+    margin-bottom: 6px;
+  }
+
+  .dt-question {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    user-select: none;
+  }
+
+  .dt-question:hover { border-color: var(--border2); }
+
+  .dt-q-label { font-size: 12px; color: var(--text2); flex: 1; }
+  .dt-q-arrow { color: var(--text3); font-size: 12px; transition: transform 0.2s; }
+  .dt-q-arrow.open { transform: rotate(90deg); }
+
+  .dt-children {
+    margin-left: 20px;
+    margin-top: 6px;
+    padding-left: 14px;
+    border-left: 1px dashed var(--border);
+    display: none;
+  }
+
+  .dt-children.open { display: block; }
+
+  .dt-leaf {
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    border-radius: var(--r);
+    font-size: 12px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dt-leaf .leaf-seg {
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* ── Footer ── */
+  footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text3);
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🍕</div>
+    <div class="logo-text">
+      <h1>PizzaCo CRM</h1>
+      <p>Customer Segmentation Engine</p>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div class="status-dot"></div>
+    <span>7 segments · Priority-resolved · Real-time</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- LEFT: Inputs + Conflict + Result -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    <!-- Input Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-icon">📋</div>
+        <span class="panel-title">Customer data input</span>
+      </div>
+      <div class="panel-body">
+        <div class="input-grid">
+          <div class="field">
+            <label>Total orders</label>
+            <input type="number" id="totalOrders" min="0" value="" placeholder="0" oninput="classify()">
+            <div class="hint">All time</div>
+          </div>
+          <div class="field">
+            <label>Orders / 12 mo</label>
+            <input type="number" id="yearOrders" min="0" value="" placeholder="0" oninput="classify()">
+            <div class="hint">Last 12 months</div>
+          </div>
+          <div class="field">
+            <label>Days since last order</label>
+            <input type="number" id="daysSince" min="0" value="" placeholder="0" oninput="classify()">
+            <div class="hint">Recency signal</div>
+          </div>
+          <div class="field">
+            <label>Customer tenure</label>
+            <input type="number" id="daysTenure" min="0" value="" placeholder="0" oninput="classify()">
+            <div class="hint">Days since first order</div>
+          </div>
+        </div>
+        <button class="btn-classify" onclick="classify()">Classify customer →</button>
+      </div>
+    </div>
+
+    <!-- Conflict Zone -->
+    <div id="conflict-zone"></div>
+
+    <!-- Result Zone -->
+    <div id="result-zone">
+      <div class="panel">
+        <div class="empty-state">
+          <div class="big">🍕</div>
+          <p>Enter a customer's data above<br>to resolve their segment.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Rules Reference + Decision Logic -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    <!-- Segment Rules Reference -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-icon">📐</div>
+        <span class="panel-title">Segment rules & priority</span>
+      </div>
+      <div class="panel-body" style="padding-top:1rem;">
+
+        <button class="rules-toggle-btn" onclick="toggleRules()">
+          <span>View all segment definitions</span>
+          <span class="arrow" id="rules-arrow">▶</span>
+        </button>
+
+        <div class="rules-list" id="rules-list">
+          <div class="rule-row">
+            <div class="rule-dot" style="background:#60a5fa"></div>
+            <div class="rule-name">First-time</div>
+            <div class="rule-cond">Total orders = 1</div>
+            <div class="rule-priority">Priority 1</div>
+          </div>
+          <div class="rule-row">
+            <div class="rule-dot" style="background:#a78bfa"></div>
+            <div class="rule-name">Loyal</div>
+            <div class="rule-cond">≥ 12 orders in last 12 mo</div>
+            <div class="rule-priority">Priority 2</div>
+          </div>
+          <div class="rule-row">
+            <div class="rule-dot" style="background:#34d399"></div>
+            <div class="rule-name">Regular</div>
+            <div class="rule-cond">6–12 orders/yr AND last ≤ 45 days</div>
+            <div class="rule-priority">Priority 3</div>
+          </div>
+          <div class="rule-row">
+            <div class="rule-dot" style="background:#38bdf8"></div>
+            <div class="rule-name">Re-engaged</div>
+            <div class="rule-cond">2–5 total orders AND inactive ≥ 90 days AND last ≤ 30 days</div>
+            <div class="rule-priority">Priority 4</div>
+          </div>
+          <div class="rule-row">
+            <div class="rule-dot" style="background:#fb923c"></div>
+            <div class="rule-name">At-risk</div>
+            <div class="rule-cond">≥ 2 orders AND 45–120 days since last</div>
+            <div class="rule-priority">Priority 5</div>
+          </div>
+          <div class="rule-row">
+            <div class="rule-dot" style="background:#94a3b8"></div>
+            <div class="rule-name">Dormant</div>
+            <div class="rule-cond">≥ 1 order AND 121–269 days since last</div>
+            <div class="rule-priority">Priority 6</div>
+          </div>
+          <div class="rule-row">
+            <div class="rule-dot" style="background:#f87171"></div>
+            <div class="rule-name">Lost</div>
+            <div class="rule-cond">≥ 1 order AND ≥ 270 days since last</div>
+            <div class="rule-priority">Priority 7</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decision Tree -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-icon">🌿</div>
+        <span class="panel-title">Decision logic — edge cases</span>
+      </div>
+      <div class="decision-tree">
+
+        <div class="dt-node">
+          <div class="dt-question" onclick="toggleDT(this)">
+            <span class="dt-q-label">⚡ Loyal vs At-risk overlap</span>
+            <span class="dt-q-arrow">▶</span>
+          </div>
+          <div class="dt-children">
+            <div class="dt-leaf">
+              <span style="color:#a78bfa">●</span>
+              <span><span class="leaf-seg" style="color:#a78bfa">Loyal wins.</span> ≥12 orders/yr qualifies for Loyal, but 45–120 days inactivity triggers At-risk too. Volume signal outweighs temporary lapse. Optionally sub-flag as "Loyal-at-risk" for extra care campaigns.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dt-node">
+          <div class="dt-question" onclick="toggleDT(this)">
+            <span class="dt-q-label">⚡ Re-engaged vs At-risk overlap</span>
+            <span class="dt-q-arrow">▶</span>
+          </div>
+          <div class="dt-children">
+            <div class="dt-leaf">
+              <span style="color:#38bdf8">●</span>
+              <span><span class="leaf-seg" style="color:#38bdf8">Re-engaged wins.</span> Recent order (≤30 days) after a long lapse (tenure ≥90 days) signals a return intent. Even if gap previously crossed 45 days, the fresh purchase resets the signal. Priority 4 &gt; Priority 5.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dt-node">
+          <div class="dt-question" onclick="toggleDT(this)">
+            <span class="dt-q-label">⚡ Exact 45-day boundary</span>
+            <span class="dt-q-arrow">▶</span>
+          </div>
+          <div class="dt-children">
+            <div class="dt-leaf">
+              <span style="color:#fb923c">●</span>
+              <span><span class="leaf-seg" style="color:#fb923c">At-risk wins at day 45.</span> Regular requires last order &lt; 45 days (strictly). At-risk starts at ≥ 45 days. If days_since_last = 45 exactly → At-risk. Watch for timezone/midnight boundary bugs in your data pipeline.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dt-node">
+          <div class="dt-question" onclick="toggleDT(this)">
+            <span class="dt-q-label">⚡ Loyal vs Regular boundary (12 orders)</span>
+            <span class="dt-q-arrow">▶</span>
+          </div>
+          <div class="dt-children">
+            <div class="dt-leaf">
+              <span style="color:#a78bfa">●</span>
+              <span><span class="leaf-seg" style="color:#a78bfa">Loyal wins at exactly 12.</span> Both rules include 12 orders/yr (Regular: 6–12, Loyal: ≥12). Priority resolves it. Monitor year-boundary resets — if orders/yr drops to 11 next month, customer reclassifies to Regular.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dt-node">
+          <div class="dt-question" onclick="toggleDT(this)">
+            <span class="dt-q-label">⚡ Dormant vs Lost boundary (269/270 days)</span>
+            <span class="dt-q-arrow">▶</span>
+          </div>
+          <div class="dt-children">
+            <div class="dt-leaf">
+              <span style="color:#f87171">●</span>
+              <span><span class="leaf-seg" style="color:#f87171">Strict cutoff at day 270.</span> Dormant = 121–269 days (win-back still viable). Lost = ≥270 days (minimal spend, suppress from main campaigns). A 1-day discrepancy flips the entire strategy. Validate data freshness daily.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dt-node">
+          <div class="dt-question" onclick="toggleDT(this)">
+            <span class="dt-q-label">⚡ First-time with long inactivity</span>
+            <span class="dt-q-arrow">▶</span>
+          </div>
+          <div class="dt-children">
+            <div class="dt-leaf">
+              <span style="color:#60a5fa">●</span>
+              <span><span class="leaf-seg" style="color:#60a5fa">First-time always wins (Priority 1).</span> Even if total=1 and days_since=200, the customer is still First-time — not Dormant. No other segment applies until order 2. Consider a separate "abandoned first-timer" flag for long-lapsed single orders.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dt-node">
+          <div class="dt-question" onclick="toggleDT(this)">
+            <span class="dt-q-label">⚡ Re-engaged with ≥6 total orders</span>
+            <span class="dt-q-arrow">▶</span>
+          </div>
+          <div class="dt-children">
+            <div class="dt-leaf">
+              <span style="color:#fb923c">●</span>
+              <span><span class="leaf-seg" style="color:#fb923c">At-risk or Regular — not Re-engaged.</span> Re-engaged requires total &lt; 6 orders. A customer with 7+ orders returning after a lapse is a lapsed Regular/Loyal, treated differently. They'd classify as At-risk or Regular based on recency.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Quick test scenarios -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-icon">🧪</div>
+        <span class="panel-title">Quick test scenarios</span>
+      </div>
+      <div class="panel-body" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="scenario-btn" onclick="loadScenario(1,1,3,0)">First-time<br><span>1 order, 3 days ago</span></button>
+        <button class="scenario-btn" onclick="loadScenario(15,14,12,400)">Loyal<br><span>14 orders/yr, 12 days</span></button>
+        <button class="scenario-btn" onclick="loadScenario(9,8,30,300)">Regular<br><span>8 orders/yr, 30 days</span></button>
+        <button class="scenario-btn" onclick="loadScenario(4,2,20,120)">Re-engaged<br><span>4 orders, returned after 120d</span></button>
+        <button class="scenario-btn" onclick="loadScenario(6,4,80,500)">At-risk<br><span>6 orders, 80 days ago</span></button>
+        <button class="scenario-btn" onclick="loadScenario(3,1,200,600)">Dormant<br><span>3 orders, 200 days ago</span></button>
+        <button class="scenario-btn" onclick="loadScenario(2,0,300,700)">Lost<br><span>2 orders, 300 days ago</span></button>
+        <button class="scenario-btn" onclick="loadScenario(14,13,65,600)" style="border-color:rgba(245,166,35,0.4);color:#f5a623">⚡ Loyal+At-risk<br><span>Edge case overlap</span></button>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>PizzaCo CRM · Customer Segmentation Engine · 7 segments · Priority-resolved rules</footer>
+
+<style>
+.scenario-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  color: var(--text2);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  line-height: 1.4;
+}
+.scenario-btn span {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+.scenario-btn:hover {
+  border-color: var(--border2);
+  background: var(--bg4);
+  color: var(--text);
+}
+</style>
+
+<script>
+// ── Segment definitions ──────────────────────────────────────────
+const SEGS = {
+  'first-time':  {
+    label: 'First-time',  icon: '🍕', cls: 't-first',
+    tagline: 'Onboarding — convert fast or reclassify',
+    action: 'Trigger onboarding flow immediately. Offer a discount on order #2. Goal: secure the second order within 14 days before the novelty fades.'
+  },
+  'loyal':       {
+    label: 'Loyal',       icon: '⭐', cls: 't-loyal',
+    tagline: 'True habitual customer — highest CLV',
+    action: 'Reward and retain. Enroll in VIP tier, offer early access to new items, referral incentives. Track CLV trajectory monthly. Never let this segment lapse into At-risk unnoticed.'
+  },
+  'regular':     {
+    label: 'Regular',     icon: '🔁', cls: 't-regular',
+    tagline: 'Early engagement — feeding toward Loyal',
+    action: 'Nurture toward Loyal. Push loyalty program enrollment. Run frequency campaigns to close the gap to 12 orders. Congratulate milestones (e.g. 5th, 10th order).'
+  },
+  're-engaged':  {
+    label: 'Re-engaged',  icon: '🔓', cls: 't-reengaged',
+    tagline: 'Returned after lapse — needs conversion to stick',
+    action: 'Treat like a First-time but with context. Acknowledge the return: "Welcome back." Offer a time-limited incentive to order again within 21 days before re-lapse.'
+  },
+  'at-risk':     {
+    label: 'At-risk',     icon: '⚠️', cls: 't-atrisk',
+    tagline: 'Churn signal — needs win-back intervention',
+    action: 'Win-back campaign now. "We miss you" + time-limited offer (expires in 7 days). Urgency is key — the 45–120 day window is your last reliable activation chance.'
+  },
+  'dormant':     {
+    label: 'Dormant',     icon: '💤', cls: 't-dormant',
+    tagline: 'Lapsed — active win-back still viable',
+    action: 'Low-frequency, high-value targeting. Use seasonal triggers or birthday/anniversary moments. One well-placed incentive can be enough — don\'t bombard.'
+  },
+  'lost':        {
+    label: 'Lost',        icon: '🚫', cls: 't-lost',
+    tagline: 'Churned — minimal spend, low recovery probability',
+    action: 'Suppress from main campaigns to protect sender score. Only engage on high-value lifecycle moments (birthday, 1-year anniversary). Minimal spend, accept the churn.'
+  },
+};
+
+const PRIORITY = ['first-time','loyal','regular','re-engaged','at-risk','dormant','lost'];
+
+// ── Classification engine ────────────────────────────────────────
+function evaluate(total, yearly, days, tenure) {
+  const matches = [];
+  if (total === 1)                                          matches.push('first-time');
+  if (yearly >= 12)                                         matches.push('loyal');
+  if (yearly >= 6 && yearly <= 12 && days <= 45)           matches.push('regular');
+  if (total >= 2 && total < 6 && days <= 30 && tenure >= 90) matches.push('re-engaged');
+  if (total >= 2 && days >= 45 && days <= 120)              matches.push('at-risk');
+  if (total >= 1 && days >= 121 && days <= 269)             matches.push('dormant');
+  if (total >= 1 && days >= 270)                            matches.push('lost');
+
+  let segment = null;
+  for (const p of PRIORITY) {
+    if (matches.includes(p)) { segment = p; break; }
+  }
+
+  return { segment, matches };
+}
+
+// ── Conflict explanations ────────────────────────────────────────
+function getConflicts(matches, segment, vals) {
+  const { total, yearly, days, tenure } = vals;
+  const conflicts = [];
+  const dropped = matches.filter(m => m !== segment);
+  if (!dropped.length) return conflicts;
+
+  if (matches.includes('loyal') && matches.includes('at-risk')) {
+    conflicts.push({
+      title: '⚡ Loyal vs At-risk overlap',
+      desc: `${yearly} orders/yr qualifies for Loyal, but ${days} days since last order triggers At-risk. <strong>Loyal wins (priority 2 vs 5)</strong> — habitual volume outweighs temporary lapse. Consider sub-flagging as "Loyal-at-risk" for a targeted retention campaign.`
+    });
+  }
+  if (matches.includes('loyal') && matches.includes('regular')) {
+    conflicts.push({
+      title: '⚡ Loyal vs Regular boundary',
+      desc: `${yearly} orders/yr hits exactly the 12-order threshold that both rules include. <strong>Loyal wins by priority.</strong> Watch for rolling-year resets — if this customer's trailing-12-month count drops to 11, they reclassify to Regular automatically.`
+    });
+  }
+  if (matches.includes('re-engaged') && matches.includes('at-risk')) {
+    conflicts.push({
+      title: '⚡ Re-engaged vs At-risk overlap',
+      desc: `${days} days since last order is within the At-risk window, but the fresh order + prior lapse pattern matches Re-engaged. <strong>Re-engaged wins (priority 4 vs 5)</strong> — recent purchase signals return intent that At-risk logic doesn't capture.`
+    });
+  }
+  if (matches.includes('dormant') && matches.includes('lost')) {
+    conflicts.push({
+      title: '⚡ Dormant vs Lost boundary',
+      desc: `${days} days is right at the 269/270 day cutoff. <strong>Check data freshness</strong> — a 1-day discrepancy flips the strategy from "active win-back" to "suppress." Validate your timestamp pipeline.`
+    });
+  }
+  if (matches.includes('first-time') && dropped.length) {
+    conflicts.push({
+      title: '⚡ First-time overrides all other signals',
+      desc: `Total orders = 1. Despite any other conditions (inactivity, tenure), this customer is always First-time until order 2 is placed. Also matched: ${dropped.map(d => SEGS[d]?.label || d).join(', ')}.`
+    });
+  }
+  if (!conflicts.length && dropped.length) {
+    conflicts.push({
+      title: `${matches.length} rules matched — priority resolved`,
+      desc: `Also matched: <strong>${dropped.map(d => SEGS[d]?.label || d).join(', ')}</strong>. Segment assigned by priority order.`
+    });
+  }
+  return conflicts;
+}
+
+// ── Render ───────────────────────────────────────────────────────
+function classify() {
+  const total   = parseInt(document.getElementById('totalOrders').value) || 0;
+  const yearly  = parseInt(document.getElementById('yearOrders').value)  || 0;
+  const days    = parseInt(document.getElementById('daysSince').value)   || 0;
+  const tenure  = parseInt(document.getElementById('daysTenure').value)  || 0;
+
+  const vals = { total, yearly, days, tenure };
+  const { segment, matches } = evaluate(total, yearly, days, tenure);
+  const conflicts = segment ? getConflicts(matches, segment, vals) : [];
+
+  renderConflicts(conflicts);
+  renderResult(segment, matches, vals);
+}
+
+function renderConflicts(conflicts) {
+  const cz = document.getElementById('conflict-zone');
+  if (!conflicts.length) { cz.innerHTML = ''; return; }
+  cz.innerHTML = conflicts.map(c => `
+    <div class="conflict-card">
+      <div class="conflict-title">${c.title}</div>
+      <div class="conflict-desc">${c.desc}</div>
+    </div>
+  `).join('');
+}
+
+function renderResult(segment, matches, vals) {
+  const rz = document.getElementById('result-zone');
+  if (!segment) {
+    rz.innerHTML = `
+      <div class="panel">
+        <div class="empty-state">
+          <div class="big">🤷</div>
+          <p>No segment matched for these values.<br>Check your inputs — a customer with 0 orders doesn't qualify for any segment yet.</p>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const s = SEGS[segment];
+  const dropped = matches.filter(m => m !== segment);
+  const alsoHtml = dropped.length
+    ? `<div class="also-matched">
+        <span>Also matched:</span>
+        ${dropped.map(d => `<span class="match-pill">${SEGS[d]?.label || d}</span>`).join('')}
+       </div>`
+    : '';
+
+  rz.innerHTML = `
+    <div class="result-card ${s.cls}">
+      <div class="result-hero">
+        <div class="seg-icon-big">${s.icon}</div>
+        <div>
+          <h2>${s.label}</h2>
+          <p>${s.tagline}</p>
+        </div>
+      </div>
+      ${alsoHtml}
+      <div class="result-stats">
+        <div class="stat">
+          <div class="stat-label">Total orders</div>
+          <div class="stat-val">${vals.total}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Orders / yr</div>
+          <div class="stat-val">${vals.yearly}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Days since last</div>
+          <div class="stat-val">${vals.days}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Tenure (days)</div>
+          <div class="stat-val">${vals.tenure}</div>
+        </div>
+      </div>
+      <div class="result-action">
+        <div class="action-label">Recommended action</div>
+        <div class="action-text">${s.action}</div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Scenario loader ──────────────────────────────────────────────
+function loadScenario(total, yearly, days, tenure) {
+  document.getElementById('totalOrders').value  = total;
+  document.getElementById('yearOrders').value   = yearly;
+  document.getElementById('daysSince').value    = days;
+  document.getElementById('daysTenure').value   = tenure;
+  classify();
+  document.getElementById('result-zone').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── UI toggles ───────────────────────────────────────────────────
+function toggleRules() {
+  const list  = document.getElementById('rules-list');
+  const arrow = document.getElementById('rules-arrow');
+  const open  = list.classList.toggle('open');
+  arrow.classList.toggle('open', open);
+  arrow.textContent = open ? '▼' : '▶';
+}
+
+function toggleDT(el) {
+  const children = el.nextElementSibling;
+  const arrow    = el.querySelector('.dt-q-arrow');
+  const open     = children.classList.toggle('open');
+  arrow.classList.toggle('open', open);
+}
+</script>
+
+</body>
+</html>
